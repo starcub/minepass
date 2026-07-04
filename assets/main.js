@@ -1,6 +1,9 @@
 let password = "";
 let passwordFailCounter = 0;
 
+const whitelistUsersElement = document.getElementById("whitelistUsers");
+const whitelistEmptyStateElement = document.getElementById("whitelistEmptyState");
+
 /**
  * Validates the password entered when first a user first enters the site
  */
@@ -25,7 +28,10 @@ async function validatePassword() {
             passwordFailCounter++;
             alert("Wrong password");
             await validatePassword();
+            return;
         }
+
+        await refreshWhitelistUsers();
     }
 }
 
@@ -75,6 +81,7 @@ async function whitelistUser(e) {
 
         alert(response.message);
         form.reset();
+        await refreshWhitelistUsers();
     } catch (err) {
         console.log(`Error ${err.message}`);
         alert("There was an error adding to the whitelist");
@@ -89,6 +96,99 @@ async function whitelistUser(e) {
  */
 function validateUsername(username) {
     return username.split(" ").length === 1;
+}
+
+/**
+ * Requests currently whitelisted users and updates the page list
+ * @returns {Promise<void>}
+ */
+async function refreshWhitelistUsers() {
+    try {
+        const request = await fetch("api/whitelist/list", {
+            method: "GET",
+            headers: {
+                "X-Api-Key": password,
+            },
+        });
+
+        const response = await request.json();
+        if (response.success !== true) {
+            whitelistUsersElement.innerHTML = "";
+            whitelistEmptyStateElement.textContent = "Could not load whitelist users.";
+            return;
+        }
+
+        const users = response.data.users;
+        renderWhitelistUsers(users);
+    } catch (err) {
+        console.log(`Error ${err.message}`);
+        whitelistUsersElement.innerHTML = "";
+        whitelistEmptyStateElement.textContent = "Could not load whitelist users.";
+    }
+}
+
+/**
+ * Renders whitelisted users and attaches remove handlers
+ * @param {string[]} users
+ * @returns {void}
+ */
+function renderWhitelistUsers(users) {
+    whitelistUsersElement.innerHTML = "";
+
+    if (!Array.isArray(users) || users.length === 0) {
+        whitelistEmptyStateElement.textContent = "No users are currently whitelisted.";
+        return;
+    }
+
+    whitelistEmptyStateElement.textContent = "";
+
+    users.forEach((user) => {
+        const listItem = document.createElement("li");
+        const usernameSpan = document.createElement("span");
+        usernameSpan.textContent = user + " ";
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.textContent = "Remove";
+        removeButton.addEventListener("click", async () => {
+            await removeWhitelistedUser(user);
+        });
+
+        listItem.appendChild(usernameSpan);
+        listItem.appendChild(removeButton);
+        whitelistUsersElement.appendChild(listItem);
+    });
+}
+
+/**
+ * Removes a username from the whitelist via API and refreshes the user list
+ * @param {string} username
+ * @returns {Promise<void>}
+ */
+async function removeWhitelistedUser(username) {
+    try {
+        const request = await fetch("api/whitelist/remove", {
+            method: "POST",
+            body: JSON.stringify({
+                username,
+            }),
+            headers: {
+                "X-Api-Key": password,
+                "Content-Type": "application/json",
+            },
+        });
+
+        const response = await request.json();
+        if (response.success !== true) {
+            alert(response.message);
+            return;
+        }
+
+        await refreshWhitelistUsers();
+    } catch (err) {
+        console.log(`Error ${err.message}`);
+        alert("There was an error removing from the whitelist");
+    }
 }
 
 // Entrypoint

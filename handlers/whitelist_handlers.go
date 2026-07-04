@@ -4,6 +4,7 @@ import (
 	"gabefraser/minepass/utils"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorcon/rcon"
@@ -59,4 +60,53 @@ func WhitelistRemove(c *gin.Context) {
 		"success": true,
 		"message": response,
 	})
+}
+
+func WhitelistList(c *gin.Context) {
+	rcon := c.MustGet("rcon").(*rcon.Conn)
+
+	response, err := rcon.Execute("whitelist list")
+	if err != nil {
+		utils.Logger("Could not fetch whitelist for " + c.ClientIP())
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"message": "Could not fetch whitelist. Please try again.",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": WhitelistUsersResponse{
+			Users: parseWhitelistedUsers(response),
+		},
+	})
+}
+
+func parseWhitelistedUsers(response string) []string {
+	parts := strings.SplitN(response, ":", 2)
+	if len(parts) != 2 {
+		return []string{}
+	}
+
+	usersRaw := strings.TrimSpace(parts[1])
+	usersRaw = strings.TrimSuffix(usersRaw, ".")
+	if usersRaw == "" {
+		return []string{}
+	}
+
+	users := strings.Split(usersRaw, ",")
+	parsedUsers := make([]string, 0, len(users))
+
+	for _, user := range users {
+		trimmedUser := strings.TrimSpace(user)
+		if trimmedUser == "" {
+			continue
+		}
+
+		parsedUsers = append(parsedUsers, trimmedUser)
+	}
+
+	return parsedUsers
 }

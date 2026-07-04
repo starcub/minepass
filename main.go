@@ -31,6 +31,7 @@ func main() {
 	{
 		v1.POST("/whitelist/add", handlers.WhitelistAdd)
 		v1.POST("/whitelist/remove", handlers.WhitelistRemove)
+		v1.GET("/whitelist/list", handlers.WhitelistList)
 		v1.POST("/validate", handlers.Validate)
 	}
 
